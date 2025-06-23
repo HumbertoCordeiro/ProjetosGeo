@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Interativo de Conforto Térmico - CB/UFRN</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js e o plugin para exibir os valores nos gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <style>
+        html, body {
+            scroll-behavior: smooth;
+            font-family: 'Inter', sans-serif;
+            background-color: #f4f7f6;
+        }
+        .filter-card, .chart-card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            text-align: center;
+        }
+        .filter-select {
+            border-radius: 0.5rem;
+            border: 1px solid #d1d5db;
+            padding: 0.5rem;
+            width: 100%;
+        }
+        .btn-reset {
+            background-color: #ef4444;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        .btn-reset:hover {
+            background-color: #dc2626;
+        }
+        .explanation-card {
+            background-color: #eef2ff;
+            border-left: 4px solid #6366f1;
+            padding: 1rem;
+            margin-top: 1rem;
+            border-radius: 0.5rem;
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body class="p-4 sm:p-6">
+    <div class="max-w-7xl mx-auto">
+        <!-- HEADER -->
+        <header class="mb-6 text-center">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-800">Dashboard Interativo de Conforto Térmico</h1>
+            <p class="text-lg text-gray-600 mt-1">Centro de Biociências - UFRN</p>
+        </header>
+
+        <main>
+            <!-- FILTER PANEL -->
+            <section id="filters" class="filter-card">
+                <h2 class="text-xl font-bold mb-4">Filtros de Análise</h2>
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div>
+                        <label for="filtro-dia" class="block text-sm font-medium text-gray-700">Dia</label>
+                        <select id="filtro-dia" class="filter-select">
+                            <option value="todos">Todos</option>
+                            <option value="27/05">27/05</option>
+                            <option value="23/06">23/06</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="filtro-turno" class="block text-sm font-medium text-gray-700">Turno</label>
+                        <select id="filtro-turno" class="filter-select">
+                            <option value="todos">Todos</option>
+                            <option value="Manhã">Manhã</option>
+                            <option value="Tarde">Tarde</option>
+                            <option value="Noite">Noite</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="filtro-ambiente" class="block text-sm font-medium text-gray-700">Ambiente</label>
+                        <select id="filtro-ambiente" class="filter-select">
+                            <option value="todos">Todos</option>
+                            <option value="Interno">Interno</option>
+                            <option value="Externo">Externo</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="filtro-sexo" class="block text-sm font-medium text-gray-700">Sexo</label>
+                        <select id="filtro-sexo" class="filter-select">
+                            <option value="todos">Todos</option>
+                            <option value="M">Masculino</option>
+                            <option value="F">Feminino</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <button id="reset-filters" class="btn-reset w-full">Limpar</button>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- METRICS -->
+            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="metric-card">
+                    <h3 class="font-bold text-2xl" id="metric-respostas">0</h3>
+                    <p class="text-sm opacity-90">Respostas na Seleção</p>
+                </div>
+                <div class="metric-card">
+                    <h3 class="font-bold text-2xl" id="metric-temp">0.0°C</h3>
+                    <p class="text-sm opacity-90">Temperatura Média</p>
+                </div>
+                <div class="metric-card">
+                    <h3 class="font-bold text-2xl" id="metric-umidade">0.0%</h3>
+                    <p class="text-sm opacity-90">Umidade Média</p>
+                </div>
+                 <div class="metric-card">
+                    <h3 class="font-bold text-2xl" id="metric-vento">0.0 m/s</h3>
+                    <p class="text-sm opacity-90">Vento Médio</p>
+                </div>
+            </section>
+
+            <!-- CHARTS -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="chart-card">
+                    <h3 class="text-lg font-semibold mb-2">Distribuição de Conforto</h3>
+                    <canvas id="confortoChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3 class="text-lg font-semibold mb-2">Distribuição de Sensação Térmica</h3>
+                    <canvas id="sensacaoChart"></canvas>
+                </div>
+                
+                <!-- GAUGE CHARTS SECTION -->
+                <div class="chart-card lg:col-span-2">
+                    <h3 class="text-lg font-semibold mb-4">Perfil Detalhado do Grupo Selecionado</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                        <div>
+                            <h4 class="font-semibold text-gray-700">Temperatura Média</h4>
+                            <canvas id="tempGauge"></canvas>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-700">Umidade Média</h4>
+                            <canvas id="umidadeGauge"></canvas>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-700">Vento Médio</h4>
+                            <canvas id="ventoGauge"></canvas>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-700">Conforto Médio</h4>
+                            <canvas id="confortoGauge"></canvas>
+                        </div>
+                    </div>
+                    <div class="explanation-card">
+                        <h4 class="font-bold text-gray-800">Como Ler os Medidores:</h4>
+                        <p class="text-sm text-gray-700 mt-2">Cada medidor mostra o valor médio para o grupo que você filtrou. A escala de cada medidor ambiental (Temperatura, Umidade, Vento) é baseada na faixa de valores coletados em toda a pesquisa, permitindo uma comparação justa e precisa.</p>
+                    </div>
+                </div>
+
+                 <div class="chart-card">
+                     <h3 class="text-lg font-semibold mb-2">Análise por Vestimenta</h3>
+                    <canvas id="vestimentaChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3 class="text-lg font-semibold mb-2">Correlação: Temperatura vs. Conforto</h3>
+                     <p class="text-xs text-gray-500 mb-2">Cada ponto é um entrevistado. Eixo Y: 1=Desconfortável, 5=Confortável.</p>
+                    <canvas id="scatterChart"></canvas>
+                </div>
+            </div>
+        </main>
+    </div>
+
+<script>
+// --- BANCO DE DADOS ---
+// Valores de vento (MPH) foram convertidos para m/s. 1 MPH = 0.44704 m/s
+const rawData = [
+  { dia: '27/05', turno: 'Tarde', ambiente: 'Interno', sexo: 'F', temp: 30.2, umidade: 81.1, vento: 0.40, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'C' },
+  { dia: '27/05', turno: 'Tarde', ambiente: 'Interno', sexo: 'M', temp: 30.2, umidade: 81.1, vento: 0.40, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { dia: '27/05', turno: 'Tarde', ambiente: 'Interno', sexo: 'F', temp: 30.2, umidade: 81.1, vento: 0.40, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { dia: '27/05', turno: 'Tarde', ambiente: 'Interno', sexo: 'F', temp: 30.2, umidade: 81.1, vento: 0.40, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'C' },
+  { dia: '27/05', turno: 'Tarde', ambiente: 'Interno', sexo: 'F', temp: 30.2, umidade: 81.1, vento: 0.40, vestimenta: 'C.M.C.C', sensacao: 'Q', conforto: 'UPD' },
+  { dia: '27/05', turno: 'Tarde', ambiente: 'Interno', sexo: 'M', temp: 30.2, umidade: 81.1, vento: 0.40, vestimenta: 'C.M.C.C', sensacao: 'Q', conforto: 'UPD' },
+  { dia: '27/05', turno: 'Tarde', ambiente: 'Interno', sexo: 'M', temp: 30.2, umidade: 81.1, vento: 0.40, vestimenta: 'C.M.C.S', sensacao: 'UPQ', conforto: 'N' },
+  { dia: '27/05', turno: 'Tarde', ambiente: 'Interno', sexo: 'F', temp: 30.2, umidade: 81.1, vento: 0.40, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'M', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'Q', conforto: 'D' },
+  { dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'M', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'C' },
+  { dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'M', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'M', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'UPC' },
+  { dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'M', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'N' },
+  { dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'F', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'F', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.L.C', sensacao: 'UPF', conforto: 'N' },
+  { dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'F', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'M', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'UPQ', conforto: 'C' },
+  { dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'M', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'M', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.S', sensacao: 'F', conforto: 'C' },
+  { dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'F', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.S', sensacao: 'F', conforto: 'C' },
+  { dia: '27/05', turno: 'Noite', ambiente: 'Externo', sexo: 'F', temp: 27.3, umidade: 94.2, vento: 0.58, vestimenta: 'C.M.C.S', sensacao: 'Q', conforto: 'D' },
+  { dia: '27/05', turno: 'Noite', ambiente: 'Externo', sexo: 'M', temp: 27.5, umidade: 88.4, vento: 0.36, vestimenta: 'C.M.C.S', sensacao: 'UPF', conforto: 'C' },
+  { dia: '27/05', turno: 'Noite', ambiente: 'Externo', sexo: 'F', temp: 27.4, umidade: 93.2, vento: 0.36, vestimenta: 'C.M.C.S', sensacao: 'UPF', conforto: 'D' },
+  { dia: '27/05', turno: 'Noite', ambiente: 'Externo', sexo: 'M', temp: 27.7, umidade: 92.7, vento: 0.31, vestimenta: 'C.M.C.C', sensacao: 'UPQ', conforto: 'UPC' },
+  { dia: '27/05', turno: 'Noite', ambiente: 'Externo', sexo: 'M', temp: 28.1, umidade: 84.6, vento: 0.49, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { dia: '27/05', turno: 'Noite', ambiente: 'Externo', sexo: 'F', temp: 28.2, umidade: 91.4, vento: 0.22, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { dia: '27/05', turno: 'Noite', ambiente: 'Externo', sexo: 'M', temp: 28.2, umidade: 97.3, vento: 0.22, vestimenta: 'C.M.C.C', sensacao: 'N', conforto: 'N' },
+  { dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'F', temp: 29.6, umidade: 94.8, vento: 0.04, vestimenta: 'Vestido', sensacao: 'UPQ', conforto: 'N' },
+  { dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'F', temp: 28.4, umidade: 90.0, vento: 0.04, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'M', temp: 28.7, umidade: 93.5, vento: 0.36, vestimenta: 'C.M.C.S', sensacao: 'UPQ', conforto: 'N' },
+  { dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'M', temp: 29.0, umidade: 89.2, vento: 0.45, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'F', temp: 27.9, umidade: 86.5, vento: 0.45, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'M', temp: 27.8, umidade: 87.8, vento: 0.45, vestimenta: 'C.M.C.C', sensacao: 'N', conforto: 'N' },
+  { dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'F', temp: 27.8, umidade: 87.9, vento: 0.40, vestimenta: 'C.M.C.C', sensacao: 'N', conforto: 'D' },
+  { dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'M', temp: 27.9, umidade: 88.0, vento: 0.31, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'C' },
+  { dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'M', temp: 27.5, umidade: 87.1, vento: 0.45, vestimenta: 'C.M.C.C', sensacao: 'N', conforto: 'UPC' },
+  { dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'F', temp: 27.5, umidade: 85.8, vento: 0.49, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'UPC' },
+  { dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'M', temp: 27.6, umidade: 85.7, vento: 0.80, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'UPC' },
+  { dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'M', temp: 27.4, umidade: 88.6, vento: 0.54, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'C' },
+  { dia: '23/06', turno: 'Manhã', ambiente: 'Interno', sexo: 'M', temp: 28.6, umidade: 83.8, vento: 1.25, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { dia: '23/06', turno: 'Manhã', ambiente: 'Interno', sexo: 'M', temp: 30.2, umidade: 83.7, vento: 0.72, vestimenta: 'C.M.C.C', sensacao: 'UPQ', conforto: 'UPC' },
+  { dia: '23/06', turno: 'Manhã', ambiente: 'Interno', sexo: 'F', temp: 29.7, umidade: 91.4, vento: 0.76, vestimenta: 'C.M.C.C', sensacao: 'Q', conforto: 'UPD' },
+  { dia: '23/06', turno: 'Manhã', ambiente: 'Interno', sexo: 'M', temp: 30.7, umidade: 89.2, vento: 0.67, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'C' },
+  { dia: '23/06', turno: 'Manhã', ambiente: 'Externo', sexo: 'M', temp: 28.7, umidade: 93.7, vento: 0.54, vestimenta: 'C.M.L.C', sensacao: 'N', conforto: 'C' },
+  { dia: '23/06', turno: 'Manhã', ambiente: 'Externo', sexo: 'F', temp: 29.8, umidade: 83.8, vento: 0.63, vestimenta: 'C.M.C.C', sensacao: 'Q', conforto: 'UPC' },
+  { dia: '23/06', turno: 'Manhã', ambiente: 'Externo', sexo: 'M', temp: 30.1, umidade: 76.8, vento: 0.63, vestimenta: 'C.M.C.C', sensacao: 'N', conforto: 'UPD' },
+  { dia: '23/06', turno: 'Manhã', ambiente: 'Externo', sexo: 'F', temp: 29.5, umidade: 84.6, vento: 0.00, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'D' },
+  { dia: '23/06', turno: 'Manhã', ambiente: 'Externo', sexo: 'F', temp: 29.5, umidade: 83.9, vento: 0.00, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'UPD' }
+];
+
+// --- MAPAS e LABELS ---
+const confortoMap = { 'C': 'Confortável', 'UPC': 'Pouco Confortável', 'N': 'Neutro', 'UPD': 'Pouco Desconfortável', 'D': 'Desconfortável' };
+const sensacaoMap = { 'F': 'Fresco', 'UPF': 'Pouco Fresco', 'N': 'Neutro', 'UPQ': 'Pouco Quente', 'Q': 'Quente' };
+const vestimentaMap = { 'C.M.C.C': 'Manga Curta, Calça', 'C.M.C.S': 'Manga Curta, Short', 'C.M.L.C': 'Manga Longa, Calça', 'Vestido': 'Vestido'};
+
+const confortoLabels = Object.values(confortoMap);
+const sensacaoLabels = Object.values(sensacaoMap);
+
+const confortoScore = { 'D': 1, 'UPD': 2, 'N': 3, 'UPC': 4, 'C': 5 };
+let confortoChart, sensacaoChart, vestimentaChart, scatterChart;
+let tempGauge, umidadeGauge, ventoGauge, confortoGauge;
+
+// --- FUNÇÕES DE ATUALIZAÇÃO ---
+function updateDashboard() {
+    const filters = {
+        dia: document.getElementById('filtro-dia').value,
+        turno: document.getElementById('filtro-turno').value,
+        ambiente: document.getElementById('filtro-ambiente').value,
+        sexo: document.getElementById('filtro-sexo').value,
+    };
+
+    const filteredData = rawData.filter(d => 
+        (filters.dia === 'todos' || d.dia === filters.dia) &&
+        (filters.turno === 'todos' || d.turno === filters.turno) &&
+        (filters.ambiente === 'todos' || d.ambiente === filters.ambiente) &&
+        (filters.sexo === 'todos' || d.sexo === filters.sexo)
+    );
+
+    updateMetrics(filteredData);
+    updateConfortoChart(filteredData);
+    updateSensacaoChart(filteredData);
+    updateGaugeCharts(filteredData);
+    updateVestimentaChart(filteredData);
+    updateScatterChart(filteredData);
+}
+
+function updateTurnoFilter() {
+    const diaSelecionado = document.getElementById('filtro-dia').value;
+    const turnoSelect = document.getElementById('filtro-turno');
+    const currentTurno = turnoSelect.value;
+    
+    turnoSelect.innerHTML = ''; // Limpa as opções atuais
+
+    const addOption = (value, text) => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = text;
+        turnoSelect.appendChild(option);
+    };
+
+    addOption('todos', 'Todos');
+    if (diaSelecionado === '27/05') {
+        addOption('Tarde', 'Tarde');
+        addOption('Noite', 'Noite');
+        turnoSelect.value = (currentTurno === 'Tarde' || currentTurno === 'Noite') ? currentTurno : 'todos';
+    } else if (diaSelecionado === '23/06') {
+        addOption('Manhã', 'Manhã');
+        turnoSelect.value = currentTurno === 'Manhã' ? currentTurno : 'todos';
+    } else { // 'todos'
+        addOption('Manhã', 'Manhã');
+        addOption('Tarde', 'Tarde');
+        addOption('Noite', 'Noite');
+        turnoSelect.value = currentTurno;
+    }
+    updateDashboard();
+}
+
+
+function updateMetrics(data) {
+    const total = data.length;
+    document.getElementById('metric-respostas').textContent = total;
+
+    if (total > 0) {
+        const avgTemp = data.reduce((sum, d) => sum + d.temp, 0) / total;
+        const avgUmidade = data.reduce((sum, d) => sum + d.umidade, 0) / total;
+        const avgVento = data.reduce((sum, d) => sum + d.vento, 0) / total;
+        document.getElementById('metric-temp').textContent = `${avgTemp.toFixed(1)}°C`;
+        document.getElementById('metric-umidade').textContent = `${avgUmidade.toFixed(1)}%`;
+        document.getElementById('metric-vento').textContent = `${avgVento.toFixed(2)} m/s`;
+    } else {
+        document.getElementById('metric-temp').textContent = 'N/A';
+        document.getElementById('metric-umidade').textContent = 'N/A';
+        document.getElementById('metric-vento').textContent = 'N/A';
+    }
+}
+
+function updateConfortoChart(data) {
+    const counts = Object.keys(confortoMap).reduce((acc, key) => ({ ...acc, [key]: 0 }), {});
+    data.forEach(d => counts[d.conforto]++);
+    confortoChart.data.datasets[0].data = Object.values(counts);
+    confortoChart.update();
+}
+
+function updateSensacaoChart(data) {
+    const counts = Object.keys(sensacaoMap).reduce((acc, key) => ({ ...acc, [key]: 0 }), {});
+    data.forEach(d => counts[d.sensacao]++);
+    sensacaoChart.data.datasets[0].data = Object.values(counts);
+    sensacaoChart.update();
+}
+
+function updateVestimentaChart(data) {
+    const counts = Object.keys(vestimentaMap).reduce((acc, key) => ({ ...acc, [key]: 0 }), {});
+    data.forEach(d => {
+      if(counts[d.vestimenta] !== undefined) counts[d.vestimenta]++;
+    });
+    vestimentaChart.data.labels = Object.values(vestimentaMap);
+    vestimentaChart.data.datasets[0].data = Object.values(counts);
+    vestimentaChart.update();
+}
+
+function updateScatterChart(data) {
+    const scatterData = data.map(d => ({
+        x: d.temp,
+        y: confortoScore[d.conforto] || 0
+    }));
+    scatterChart.data.datasets[0].data = scatterData;
+    scatterChart.update();
+}
+
+function updateGaugeCharts(data) {
+    const total = data.length;
+    let avgTemp = 0, avgUmidade = 0, avgVento = 0, avgConforto = 0;
+
+    if (total > 0) {
+        avgTemp = data.reduce((sum, d) => sum + d.temp, 0) / total;
+        avgUmidade = data.reduce((sum, d) => sum + d.umidade, 0) / total;
+        avgVento = data.reduce((sum, d) => sum + d.vento, 0) / total;
+        avgConforto = data.reduce((sum, d) => sum + (confortoScore[d.conforto] || 0), 0) / total;
+    }
+
+    updateSingleGauge(tempGauge, avgTemp, '°C');
+    updateSingleGauge(umidadeGauge, avgUmidade, '%');
+    updateSingleGauge(ventoGauge, avgVento, ' m/s');
+    updateSingleGauge(confortoGauge, avgConforto, '');
+}
+
+function updateSingleGauge(chart, value, unit) {
+    const min = chart.options.scales.y.min;
+    const max = chart.options.scales.y.max;
+    
+    chart.data.datasets[0].data[0] = value - min;
+    chart.data.datasets[0].data[1] = max - value;
+    chart.options.plugins.title.text = value > 0 ? `${value.toFixed(2)}${unit}` : 'N/A';
+    chart.update();
+}
+
+function createGaugeChart(ctx, label, min, max, color) {
+    return new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            datasets: [{
+                data: [0, max - min],
+                backgroundColor: [color, '#e5e7eb'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            cutout: '70%',
+            circumference: 180,
+            rotation: 270,
+            plugins: {
+                legend: { display: false },
+                tooltip: { enabled: false },
+                datalabels: { display: false },
+                title: {
+                    display: true,
+                    text: 'N/A',
+                    position: 'bottom',
+                    align: 'center',
+                    font: { size: 18, weight: 'bold' },
+                    color: '#1f2937',
+                    padding: { top: -20 }
+                }
+            },
+            scales: {
+                y: { min: min, max: max }
+            }
+        }
+    });
+}
+
+
+// --- INICIALIZAÇÃO ---
+document.addEventListener('DOMContentLoaded', () => {
+    Chart.register(ChartDataLabels);
+
+    const datalabelsConfig = {
+        color: '#fff',
+        font: { weight: 'bold' },
+        formatter: (value) => (value > 0 ? value : null)
+    };
+
+    // Chart initializations
+    const ctxConforto = document.getElementById('confortoChart').getContext('2d');
+    confortoChart = new Chart(ctxConforto, {
+        type: 'doughnut',
+        data: { labels: confortoLabels, datasets: [{ data: [], backgroundColor: ['#22c55e', '#84cc16', '#a3a3a3', '#f97316', '#ef4444'] }] },
+        options: { responsive: true, plugins: { legend: { position: 'right' }, datalabels: datalabelsConfig } }
+    });
+
+    const ctxSensacao = document.getElementById('sensacaoChart').getContext('2d');
+    sensacaoChart = new Chart(ctxSensacao, {
+        type: 'doughnut',
+        data: { labels: sensacaoLabels, datasets: [{ data: [], backgroundColor: ['#3b82f6', '#60a5fa', '#a3a3a3', '#f97316', '#ef4444'] }] },
+        options: { responsive: true, plugins: { legend: { position: 'right' }, datalabels: datalabelsConfig } }
+    });
+
+    const ctxVestimenta = document.getElementById('vestimentaChart').getContext('2d');
+    vestimentaChart = new Chart(ctxVestimenta, {
+        type: 'bar',
+        data: { labels: [], datasets: [{ label: 'Nº de Pessoas', data: [], backgroundColor: '#60a5fa' }] },
+        options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false }, datalabels: { ...datalabelsConfig, color: '#333', anchor: 'end', align: 'end' } } }
+    });
+    
+    const ctxScatter = document.getElementById('scatterChart').getContext('2d');
+    scatterChart = new Chart(ctxScatter, {
+        type: 'scatter',
+        data: {
+            datasets: [{
+                label: 'Entrevistado',
+                data: [],
+                backgroundColor: 'rgba(132, 99, 255, 0.7)'
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { datalabels: { display: false } },
+            scales: {
+                x: { title: { display: true, text: 'Temperatura (°C)' } },
+                y: { title: { display: true, text: 'Nível de Conforto' }, min: 0, max: 5.5, ticks: {
+                        stepSize: 1,
+                        callback: function(value) {
+                           const labels = {1: 'Desconfortável', 2: 'Pouco Desc.', 3: 'Neutro', 4: 'Pouco Conf.', 5: 'Confortável'};
+                           return labels[value] || '';
+                        }
+                    } 
+                }
+            }
+        }
+    });
+
+    // Gauge charts initialization
+    const minTemp = Math.min(...rawData.map(d => d.temp)) - 5;
+    const maxTemp = Math.max(...rawData.map(d => d.temp)) + 2;
+    const minUmidade = Math.min(...rawData.map(d => d.umidade)) - 10;
+    const maxUmidade = 100;
+    const maxVento = Math.max(...rawData.map(d => d.vento)) + 0.5;
+
+    tempGauge = createGaugeChart(document.getElementById('tempGauge').getContext('2d'), 'Temperatura', minTemp, maxTemp, '#ef4444');
+    umidadeGauge = createGaugeChart(document.getElementById('umidadeGauge').getContext('2d'), 'Umidade', minUmidade, maxUmidade, '#3b82f6');
+    ventoGauge = createGaugeChart(document.getElementById('ventoGauge').getContext('2d'), 'Vento', 0, maxVento, '#22c55e');
+    confortoGauge = createGaugeChart(document.getElementById('confortoGauge').getContext('2d'), 'Conforto', 1, 5, '#f97316');
+
+    // Event Listeners
+    document.getElementById('filtro-dia').addEventListener('change', updateTurnoFilter);
+    document.getElementById('filtro-turno').addEventListener('change', updateDashboard);
+    document.getElementById('filtro-ambiente').addEventListener('change', updateDashboard);
+    document.getElementById('filtro-sexo').addEventListener('change', updateDashboard);
+    document.getElementById('reset-filters').addEventListener('click', () => {
+        document.getElementById('filtro-dia').value = 'todos';
+        updateTurnoFilter();
+        document.getElementById('filtro-ambiente').value = 'todos';
+        document.getElementById('filtro-sexo').value = 'todos';
+        updateDashboard();
+    });
+
+    // First load
+    updateDashboard();
+});
+</script>
+</body>
+</html>
