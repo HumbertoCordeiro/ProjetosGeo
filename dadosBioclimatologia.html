@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Interativo de Conforto Térmico - CB/UFRN</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js e o plugin para exibir os valores nos gráficos -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Bibliotecas para os gráficos (versões atualizadas e empacotadas para corrigir o erro) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@^4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@^3"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <style>
         html, body {
@@ -140,7 +141,6 @@
                     <canvas id="sensacaoChart"></canvas>
                 </div>
                 
-                <!-- GAUGE CHARTS SECTION -->
                 <div class="chart-card lg:col-span-2">
                     <h3 class="text-lg font-semibold mb-4">Perfil Detalhado do Grupo Selecionado</h3>
                     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-center">
@@ -176,6 +176,45 @@
                      <p class="text-xs text-gray-500 mb-2">Cada ponto é um entrevistado. Eixo Y: 1=Desconfortável, 5=Confortável.</p>
                     <canvas id="scatterChart"></canvas>
                 </div>
+                
+                 <!-- TIMELINE CHART -->
+                <div class="chart-card lg:col-span-2">
+                    <h3 class="text-lg font-semibold mb-4">Linha do Tempo das Coletas</h3>
+                    <div id="timelineContainer">
+                        <canvas id="timelineChart"></canvas>
+                    </div>
+                    <div id="timelineMessage" class="hidden text-center text-gray-500 p-8">
+                        <p>Por favor, selecione um único dia no filtro para visualizar a linha do tempo.</p>
+                    </div>
+                </div>
+                
+                 <!-- DETAILED TABLE -->
+                <div class="chart-card lg:col-span-2">
+                    <div id="toggleDetailsTable" class="flex justify-between items-center cursor-pointer">
+                        <h3 class="text-lg font-semibold">Detalhes das Respostas na Seleção</h3>
+                        <svg id="detailsTableIcon" class="w-6 h-6 transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
+                    </div>
+                    <div id="detailsTableWrapper" class="overflow-x-auto mt-4 hidden">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="p-2">Hora</th>
+                                    <th class="p-2">Dia</th>
+                                    <th class="p-2">Ambiente</th>
+                                    <th class="p-2">Sexo</th>
+                                    <th class="p-2">Temp.</th>
+                                    <th class="p-2">Umidade</th>
+                                    <th class="p-2">Vento</th>
+                                    <th class="p-2">Conforto</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detailsTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </main>
         
@@ -192,56 +231,55 @@
 
 <script>
 // --- BANCO DE DADOS ---
-// Valores de vento (MPH) foram convertidos para m/s. 1 MPH = 0.44704 m/s
 const rawData = [
-  { dia: '27/05', turno: 'Tarde', ambiente: 'Interno', sexo: 'F', temp: 30.2, umidade: 81.1, vento: 0.40, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'C' },
-  { dia: '27/05', turno: 'Tarde', ambiente: 'Interno', sexo: 'M', temp: 30.2, umidade: 81.1, vento: 0.40, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
-  { dia: '27/05', turno: 'Tarde', ambiente: 'Interno', sexo: 'F', temp: 30.2, umidade: 81.1, vento: 0.40, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
-  { dia: '27/05', turno: 'Tarde', ambiente: 'Interno', sexo: 'F', temp: 30.2, umidade: 81.1, vento: 0.40, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'C' },
-  { dia: '27/05', turno: 'Tarde', ambiente: 'Interno', sexo: 'F', temp: 30.2, umidade: 81.1, vento: 0.40, vestimenta: 'C.M.C.C', sensacao: 'Q', conforto: 'UPD' },
-  { dia: '27/05', turno: 'Tarde', ambiente: 'Interno', sexo: 'M', temp: 30.2, umidade: 81.1, vento: 0.40, vestimenta: 'C.M.C.C', sensacao: 'Q', conforto: 'UPD' },
-  { dia: '27/05', turno: 'Tarde', ambiente: 'Interno', sexo: 'M', temp: 30.2, umidade: 81.1, vento: 0.40, vestimenta: 'C.M.C.S', sensacao: 'UPQ', conforto: 'N' },
-  { dia: '27/05', turno: 'Tarde', ambiente: 'Interno', sexo: 'F', temp: 30.2, umidade: 81.1, vento: 0.40, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
-  { dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'M', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'Q', conforto: 'D' },
-  { dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'M', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'C' },
-  { dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'M', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
-  { dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'M', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'UPC' },
-  { dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'M', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'N' },
-  { dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'F', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
-  { dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'F', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.L.C', sensacao: 'UPF', conforto: 'N' },
-  { dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'F', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
-  { dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'M', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'UPQ', conforto: 'C' },
-  { dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'M', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
-  { dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'M', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.S', sensacao: 'F', conforto: 'C' },
-  { dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'F', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.S', sensacao: 'F', conforto: 'C' },
-  { dia: '27/05', turno: 'Noite', ambiente: 'Externo', sexo: 'F', temp: 27.3, umidade: 94.2, vento: 0.58, vestimenta: 'C.M.C.S', sensacao: 'Q', conforto: 'D' },
-  { dia: '27/05', turno: 'Noite', ambiente: 'Externo', sexo: 'M', temp: 27.5, umidade: 88.4, vento: 0.36, vestimenta: 'C.M.C.S', sensacao: 'UPF', conforto: 'C' },
-  { dia: '27/05', turno: 'Noite', ambiente: 'Externo', sexo: 'F', temp: 27.4, umidade: 93.2, vento: 0.36, vestimenta: 'C.M.C.S', sensacao: 'UPF', conforto: 'D' },
-  { dia: '27/05', turno: 'Noite', ambiente: 'Externo', sexo: 'M', temp: 27.7, umidade: 92.7, vento: 0.31, vestimenta: 'C.M.C.C', sensacao: 'UPQ', conforto: 'UPC' },
-  { dia: '27/05', turno: 'Noite', ambiente: 'Externo', sexo: 'M', temp: 28.1, umidade: 84.6, vento: 0.49, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
-  { dia: '27/05', turno: 'Noite', ambiente: 'Externo', sexo: 'F', temp: 28.2, umidade: 91.4, vento: 0.22, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
-  { dia: '27/05', turno: 'Noite', ambiente: 'Externo', sexo: 'M', temp: 28.2, umidade: 97.3, vento: 0.22, vestimenta: 'C.M.C.C', sensacao: 'N', conforto: 'N' },
-  { dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'F', temp: 29.6, umidade: 94.8, vento: 0.04, vestimenta: 'Vestido', sensacao: 'UPQ', conforto: 'N' },
-  { dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'F', temp: 28.4, umidade: 90.0, vento: 0.04, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
-  { dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'M', temp: 28.7, umidade: 93.5, vento: 0.36, vestimenta: 'C.M.C.S', sensacao: 'UPQ', conforto: 'N' },
-  { dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'M', temp: 29.0, umidade: 89.2, vento: 0.45, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
-  { dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'F', temp: 27.9, umidade: 86.5, vento: 0.45, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
-  { dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'M', temp: 27.8, umidade: 87.8, vento: 0.45, vestimenta: 'C.M.C.C', sensacao: 'N', conforto: 'N' },
-  { dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'F', temp: 27.8, umidade: 87.9, vento: 0.40, vestimenta: 'C.M.C.C', sensacao: 'N', conforto: 'D' },
-  { dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'M', temp: 27.9, umidade: 88.0, vento: 0.31, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'C' },
-  { dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'M', temp: 27.5, umidade: 87.1, vento: 0.45, vestimenta: 'C.M.C.C', sensacao: 'N', conforto: 'UPC' },
-  { dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'F', temp: 27.5, umidade: 85.8, vento: 0.49, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'UPC' },
-  { dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'M', temp: 27.6, umidade: 85.7, vento: 0.80, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'UPC' },
-  { dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'M', temp: 27.4, umidade: 88.6, vento: 0.54, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'C' },
-  { dia: '23/06', turno: 'Manhã', ambiente: 'Interno', sexo: 'M', temp: 28.6, umidade: 83.8, vento: 1.25, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
-  { dia: '23/06', turno: 'Manhã', ambiente: 'Interno', sexo: 'M', temp: 30.2, umidade: 83.7, vento: 0.72, vestimenta: 'C.M.C.C', sensacao: 'UPQ', conforto: 'UPC' },
-  { dia: '23/06', turno: 'Manhã', ambiente: 'Interno', sexo: 'F', temp: 29.7, umidade: 91.4, vento: 0.76, vestimenta: 'C.M.C.C', sensacao: 'Q', conforto: 'UPD' },
-  { dia: '23/06', turno: 'Manhã', ambiente: 'Interno', sexo: 'M', temp: 30.7, umidade: 89.2, vento: 0.67, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'C' },
-  { dia: '23/06', turno: 'Manhã', ambiente: 'Externo', sexo: 'M', temp: 28.7, umidade: 93.7, vento: 0.54, vestimenta: 'C.M.L.C', sensacao: 'N', conforto: 'C' },
-  { dia: '23/06', turno: 'Manhã', ambiente: 'Externo', sexo: 'F', temp: 29.8, umidade: 83.8, vento: 0.63, vestimenta: 'C.M.C.C', sensacao: 'Q', conforto: 'UPC' },
-  { dia: '23/06', turno: 'Manhã', ambiente: 'Externo', sexo: 'M', temp: 30.1, umidade: 76.8, vento: 0.63, vestimenta: 'C.M.C.C', sensacao: 'N', conforto: 'UPD' },
-  { dia: '23/06', turno: 'Manhã', ambiente: 'Externo', sexo: 'F', temp: 29.5, umidade: 84.6, vento: 0.00, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'D' },
-  { dia: '23/06', turno: 'Manhã', ambiente: 'Externo', sexo: 'F', temp: 29.5, umidade: 83.9, vento: 0.00, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'UPD' }
+  { hora: '16:17', dia: '27/05', turno: 'Tarde', ambiente: 'Interno', sexo: 'F', temp: 30.2, umidade: 81.1, vento: 0.40, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'C' },
+  { hora: '16:15', dia: '27/05', turno: 'Tarde', ambiente: 'Interno', sexo: 'M', temp: 30.2, umidade: 81.1, vento: 0.40, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { hora: '16:13', dia: '27/05', turno: 'Tarde', ambiente: 'Interno', sexo: 'F', temp: 30.2, umidade: 81.1, vento: 0.40, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { hora: '16:11', dia: '27/05', turno: 'Tarde', ambiente: 'Interno', sexo: 'F', temp: 30.2, umidade: 81.1, vento: 0.40, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'C' },
+  { hora: '16:04', dia: '27/05', turno: 'Tarde', ambiente: 'Interno', sexo: 'F', temp: 30.2, umidade: 81.1, vento: 0.40, vestimenta: 'C.M.C.C', sensacao: 'Q', conforto: 'UPD' },
+  { hora: '16:02', dia: '27/05', turno: 'Tarde', ambiente: 'Interno', sexo: 'M', temp: 30.2, umidade: 81.1, vento: 0.40, vestimenta: 'C.M.C.C', sensacao: 'Q', conforto: 'UPD' },
+  { hora: '15:58', dia: '27/05', turno: 'Tarde', ambiente: 'Interno', sexo: 'M', temp: 30.2, umidade: 81.1, vento: 0.40, vestimenta: 'C.M.C.S', sensacao: 'UPQ', conforto: 'N' },
+  { hora: '16:08', dia: '27/05', turno: 'Tarde', ambiente: 'Interno', sexo: 'F', temp: 30.2, umidade: 81.1, vento: 0.40, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { hora: '16:27', dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'M', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'Q', conforto: 'D' },
+  { hora: '16:23', dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'M', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'C' },
+  { hora: '16:25', dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'M', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { hora: '16:24', dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'M', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'UPC' },
+  { hora: '15:21', dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'M', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'N' },
+  { hora: '15:15', dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'F', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { hora: '15:10', dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'F', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.L.C', sensacao: 'UPF', conforto: 'N' },
+  { hora: '15:14', dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'F', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { hora: '15:13', dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'M', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'UPQ', conforto: 'C' },
+  { hora: '15:22', dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'M', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { hora: '15:33', dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'M', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.S', sensacao: 'F', conforto: 'C' },
+  { hora: '15:24', dia: '27/05', turno: 'Tarde', ambiente: 'Externo', sexo: 'F', temp: 26.7, umidade: 83.4, vento: 1.43, vestimenta: 'C.M.C.S', sensacao: 'F', conforto: 'C' },
+  { hora: '18:54', dia: '27/05', turno: 'Noite', ambiente: 'Externo', sexo: 'F', temp: 27.3, umidade: 94.2, vento: 0.58, vestimenta: 'C.M.C.S', sensacao: 'Q', conforto: 'D' },
+  { hora: '18:58', dia: '27/05', turno: 'Noite', ambiente: 'Externo', sexo: 'M', temp: 27.5, umidade: 88.4, vento: 0.36, vestimenta: 'C.M.C.S', sensacao: 'UPF', conforto: 'C' },
+  { hora: '19:02', dia: '27/05', turno: 'Noite', ambiente: 'Externo', sexo: 'F', temp: 27.4, umidade: 93.2, vento: 0.36, vestimenta: 'C.M.C.S', sensacao: 'UPF', conforto: 'D' },
+  { hora: '19:05', dia: '27/05', turno: 'Noite', ambiente: 'Externo', sexo: 'M', temp: 27.7, umidade: 92.7, vento: 0.31, vestimenta: 'C.M.C.C', sensacao: 'UPQ', conforto: 'UPC' },
+  { hora: '19:11', dia: '27/05', turno: 'Noite', ambiente: 'Externo', sexo: 'M', temp: 28.1, umidade: 84.6, vento: 0.49, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { hora: '19:14', dia: '27/05', turno: 'Noite', ambiente: 'Externo', sexo: 'F', temp: 28.2, umidade: 91.4, vento: 0.22, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { hora: '19:17', dia: '27/05', turno: 'Noite', ambiente: 'Externo', sexo: 'M', temp: 28.2, umidade: 97.3, vento: 0.22, vestimenta: 'C.M.C.C', sensacao: 'N', conforto: 'N' },
+  { hora: '19:24', dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'F', temp: 29.6, umidade: 94.8, vento: 0.04, vestimenta: 'Vestido', sensacao: 'UPQ', conforto: 'N' },
+  { hora: '19:27', dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'F', temp: 28.4, umidade: 90.0, vento: 0.04, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { hora: '19:30', dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'M', temp: 28.7, umidade: 93.5, vento: 0.36, vestimenta: 'C.M.C.S', sensacao: 'UPQ', conforto: 'N' },
+  { hora: '19:36', dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'M', temp: 29.0, umidade: 89.2, vento: 0.45, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { hora: '19:40', dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'F', temp: 27.9, umidade: 86.5, vento: 0.45, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { hora: '19:42', dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'M', temp: 27.8, umidade: 87.8, vento: 0.45, vestimenta: 'C.M.C.C', sensacao: 'N', conforto: 'N' },
+  { hora: '19:47', dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'F', temp: 27.8, umidade: 87.9, vento: 0.40, vestimenta: 'C.M.C.C', sensacao: 'N', conforto: 'D' },
+  { hora: '19:49', dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'M', temp: 27.9, umidade: 88.0, vento: 0.31, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'C' },
+  { hora: '19:52', dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'M', temp: 27.5, umidade: 87.1, vento: 0.45, vestimenta: 'C.M.C.C', sensacao: 'N', conforto: 'UPC' },
+  { hora: '19:57', dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'F', temp: 27.5, umidade: 85.8, vento: 0.49, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'UPC' },
+  { hora: '19:59', dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'M', temp: 27.6, umidade: 85.7, vento: 0.80, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'UPC' },
+  { hora: '20:00', dia: '27/05', turno: 'Noite', ambiente: 'Interno', sexo: 'M', temp: 27.4, umidade: 88.6, vento: 0.54, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'C' },
+  { hora: '09:50', dia: '23/06', turno: 'Manhã', ambiente: 'Interno', sexo: 'M', temp: 28.6, umidade: 83.8, vento: 1.25, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'C' },
+  { hora: '09:45', dia: '23/06', turno: 'Manhã', ambiente: 'Interno', sexo: 'M', temp: 30.2, umidade: 83.7, vento: 0.72, vestimenta: 'C.M.C.C', sensacao: 'UPQ', conforto: 'UPC' },
+  { hora: '09:43', dia: '23/06', turno: 'Manhã', ambiente: 'Interno', sexo: 'F', temp: 29.7, umidade: 91.4, vento: 0.76, vestimenta: 'C.M.C.C', sensacao: 'Q', conforto: 'UPD' },
+  { hora: '09:36', dia: '23/06', turno: 'Manhã', ambiente: 'Interno', sexo: 'M', temp: 30.7, umidade: 89.2, vento: 0.67, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'C' },
+  { hora: '09:26', dia: '23/06', turno: 'Manhã', ambiente: 'Externo', sexo: 'M', temp: 28.7, umidade: 93.7, vento: 0.54, vestimenta: 'C.M.L.C', sensacao: 'N', conforto: 'C' },
+  { hora: '09:47', dia: '23/06', turno: 'Manhã', ambiente: 'Externo', sexo: 'F', temp: 29.8, umidade: 83.8, vento: 0.63, vestimenta: 'C.M.C.C', sensacao: 'Q', conforto: 'UPC' },
+  { hora: '09:53', dia: '23/06', turno: 'Manhã', ambiente: 'Externo', sexo: 'M', temp: 30.1, umidade: 76.8, vento: 0.63, vestimenta: 'C.M.C.C', sensacao: 'N', conforto: 'UPD' },
+  { hora: '09:38', dia: '23/06', turno: 'Manhã', ambiente: 'Externo', sexo: 'F', temp: 29.5, umidade: 84.6, vento: 0.00, vestimenta: 'C.M.C.C', sensacao: 'UPF', conforto: 'D' },
+  { hora: '09:35', dia: '23/06', turno: 'Manhã', ambiente: 'Externo', sexo: 'F', temp: 29.5, umidade: 83.9, vento: 0.00, vestimenta: 'C.M.C.C', sensacao: 'F', conforto: 'UPD' }
 ];
 
 // --- MAPAS e LABELS ---
@@ -253,7 +291,7 @@ const confortoLabels = Object.values(confortoMap);
 const sensacaoLabels = Object.values(sensacaoMap);
 
 const confortoScore = { 'D': 1, 'UPD': 2, 'N': 3, 'UPC': 4, 'C': 5 };
-let confortoChart, sensacaoChart, vestimentaChart, scatterChart;
+let confortoChart, sensacaoChart, vestimentaChart, scatterChart, timelineChart;
 let tempGauge, umidadeGauge, ventoGauge, confortoGauge;
 
 // --- FUNÇÕES DE ATUALIZAÇÃO ---
@@ -278,6 +316,8 @@ function updateDashboard() {
     updateGaugeCharts(filteredData);
     updateVestimentaChart(filteredData);
     updateScatterChart(filteredData);
+    updateTimelineChart(filteredData);
+    updateDetailsTable(filteredData); 
 }
 
 function updateTurnoFilter() {
@@ -285,7 +325,7 @@ function updateTurnoFilter() {
     const turnoSelect = document.getElementById('filtro-turno');
     const currentTurno = turnoSelect.value;
     
-    turnoSelect.innerHTML = ''; // Limpa as opções atuais
+    turnoSelect.innerHTML = '';
 
     const addOption = (value, text) => {
         const option = document.createElement('option');
@@ -302,7 +342,7 @@ function updateTurnoFilter() {
     } else if (diaSelecionado === '23/06') {
         addOption('Manhã', 'Manhã');
         turnoSelect.value = currentTurno === 'Manhã' ? currentTurno : 'todos';
-    } else { // 'todos'
+    } else { 
         addOption('Manhã', 'Manhã');
         addOption('Tarde', 'Tarde');
         addOption('Noite', 'Noite');
@@ -310,7 +350,6 @@ function updateTurnoFilter() {
     }
     updateDashboard();
 }
-
 
 function updateMetrics(data) {
     const total = data.length;
@@ -384,8 +423,8 @@ function updateSingleGauge(chart, value, unit) {
     const min = chart.options.scales.y.min;
     const max = chart.options.scales.y.max;
     
-    chart.data.datasets[0].data[0] = value - min;
-    chart.data.datasets[0].data[1] = max - value;
+    chart.data.datasets[0].data[0] = value > min ? value - min : 0;
+    chart.data.datasets[0].data[1] = value > min ? max - value : max - min;
     chart.options.plugins.title.text = value > 0 ? `${value.toFixed(2)}${unit}` : 'N/A';
     chart.update();
 }
@@ -426,6 +465,62 @@ function createGaugeChart(ctx, label, min, max, color) {
     });
 }
 
+function updateDetailsTable(data) {
+    const tableBody = document.getElementById('detailsTableBody');
+    tableBody.innerHTML = ''; 
+
+    if (data.length === 0) {
+        const row = tableBody.insertRow();
+        const cell = row.insertCell();
+        cell.colSpan = 8;
+        cell.textContent = 'Nenhuma resposta encontrada para os filtros selecionados.';
+        cell.className = 'p-4 text-center text-gray-500';
+    } else {
+        data.sort((a,b) => a.hora.localeCompare(b.hora)).forEach(d => {
+            const row = tableBody.insertRow();
+            row.className = 'border-b hover:bg-gray-50';
+            
+            row.insertCell().textContent = d.hora;
+            row.insertCell().textContent = d.dia;
+            row.insertCell().textContent = d.ambiente;
+            row.insertCell().textContent = d.sexo;
+            row.insertCell().textContent = `${d.temp.toFixed(1)}°C`;
+            row.insertCell().textContent = `${d.umidade.toFixed(1)}%`;
+            row.insertCell().textContent = `${d.vento.toFixed(2)} m/s`;
+            row.insertCell().textContent = confortoMap[d.conforto];
+
+            Array.from(row.cells).forEach(cell => cell.className = 'p-2');
+        });
+    }
+}
+
+function updateTimelineChart(data) {
+    const diaSelecionado = document.getElementById('filtro-dia').value;
+    const container = document.getElementById('timelineContainer');
+    const message = document.getElementById('timelineMessage');
+
+    if (diaSelecionado === 'todos' || data.length === 0) {
+        container.classList.add('hidden');
+        message.classList.remove('hidden');
+        return;
+    }
+
+    container.classList.remove('hidden');
+    message.classList.add('hidden');
+
+    const sortedData = [...data].sort((a, b) => a.hora.localeCompare(b.hora));
+
+    const parseTime = (dia, hora) => {
+        const [day, month] = dia.split('/');
+        // JS months are 0-indexed, so -1. Assuming year 2024 for date object.
+        return new Date(`2024-${month}-${day}T${hora}:00`);
+    };
+
+    timelineChart.data.datasets[0].data = sortedData.map(d => ({ x: parseTime(d.dia, d.hora), y: d.temp }));
+    timelineChart.data.datasets[1].data = sortedData.map(d => ({ x: parseTime(d.dia, d.hora), y: d.umidade }));
+    timelineChart.data.datasets[2].data = sortedData.map(d => ({ x: parseTime(d.dia, d.hora), y: confortoScore[d.conforto] }));
+    timelineChart.update();
+}
 
 // --- INICIALIZAÇÃO ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -437,30 +532,25 @@ document.addEventListener('DOMContentLoaded', () => {
         formatter: (value) => (value > 0 ? value : null)
     };
 
-    // Chart initializations
-    const ctxConforto = document.getElementById('confortoChart').getContext('2d');
-    confortoChart = new Chart(ctxConforto, {
+    confortoChart = new Chart(document.getElementById('confortoChart').getContext('2d'), {
         type: 'doughnut',
         data: { labels: confortoLabels, datasets: [{ data: [], backgroundColor: ['#22c55e', '#84cc16', '#a3a3a3', '#f97316', '#ef4444'] }] },
         options: { responsive: true, plugins: { legend: { position: 'right' }, datalabels: datalabelsConfig } }
     });
 
-    const ctxSensacao = document.getElementById('sensacaoChart').getContext('2d');
-    sensacaoChart = new Chart(ctxSensacao, {
+    sensacaoChart = new Chart(document.getElementById('sensacaoChart').getContext('2d'), {
         type: 'doughnut',
         data: { labels: sensacaoLabels, datasets: [{ data: [], backgroundColor: ['#3b82f6', '#60a5fa', '#a3a3a3', '#f97316', '#ef4444'] }] },
         options: { responsive: true, plugins: { legend: { position: 'right' }, datalabels: datalabelsConfig } }
     });
 
-    const ctxVestimenta = document.getElementById('vestimentaChart').getContext('2d');
-    vestimentaChart = new Chart(ctxVestimenta, {
+    vestimentaChart = new Chart(document.getElementById('vestimentaChart').getContext('2d'), {
         type: 'bar',
         data: { labels: [], datasets: [{ label: 'Nº de Pessoas', data: [], backgroundColor: '#60a5fa' }] },
         options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false }, datalabels: { ...datalabelsConfig, color: '#333', anchor: 'end', align: 'end' } } }
     });
     
-    const ctxScatter = document.getElementById('scatterChart').getContext('2d');
-    scatterChart = new Chart(ctxScatter, {
+    scatterChart = new Chart(document.getElementById('scatterChart').getContext('2d'), {
         type: 'scatter',
         data: {
             datasets: [{
@@ -486,7 +576,87 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Gauge charts initialization
+    timelineChart = new Chart(document.getElementById('timelineChart').getContext('2d'), {
+        type: 'line',
+        data: {
+            datasets: [
+                {
+                    label: 'Temperatura (°C)',
+                    data: [],
+                    borderColor: '#ef4444',
+                    backgroundColor: '#ef4444',
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Umidade (%)',
+                    data: [],
+                    borderColor: '#3b82f6',
+                    backgroundColor: '#3b82f6',
+                    yAxisID: 'y'
+                },
+                 {
+                    label: 'Conforto',
+                    data: [],
+                    borderColor: 'transparent',
+                    backgroundColor: '#22c55e',
+                    yAxisID: 'y1',
+                    type: 'scatter',
+                    pointRadius: 6,
+                    pointHoverRadius: 8
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { datalabels: { display: false } },
+            scales: {
+                x: {
+                    type: 'time',
+                    time: {
+                        unit: 'hour',
+                        displayFormats: {
+                            hour: 'HH:mm'
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Hora da Coleta'
+                    }
+                },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Temperatura (°C) / Umidade (%)'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    min: 0,
+                    max: 5.5,
+                    grid: {
+                        drawOnChartArea: false, 
+                    },
+                    title: {
+                        display: true,
+                        text: 'Nível de Conforto'
+                    },
+                    ticks: {
+                        stepSize: 1,
+                        callback: function(value) {
+                           const labels = {1: 'Desc.', 2: 'P. Desc.', 3: 'Neutro', 4: 'P. Conf.', 5: 'Conf.'};
+                           return labels[value] || '';
+                        }
+                    } 
+                }
+            }
+        }
+    });
+
     const minTemp = Math.min(...rawData.map(d => d.temp)) - 5;
     const maxTemp = Math.max(...rawData.map(d => d.temp)) + 2;
     const minUmidade = Math.min(...rawData.map(d => d.umidade)) - 10;
@@ -498,7 +668,6 @@ document.addEventListener('DOMContentLoaded', () => {
     ventoGauge = createGaugeChart(document.getElementById('ventoGauge').getContext('2d'), 'Vento', 0, maxVento, '#22c55e');
     confortoGauge = createGaugeChart(document.getElementById('confortoGauge').getContext('2d'), 'Conforto', 1, 5, '#f97316');
 
-    // Event Listeners
     document.getElementById('filtro-dia').addEventListener('change', updateTurnoFilter);
     document.getElementById('filtro-turno').addEventListener('change', updateDashboard);
     document.getElementById('filtro-ambiente').addEventListener('change', updateDashboard);
@@ -511,7 +680,15 @@ document.addEventListener('DOMContentLoaded', () => {
         updateDashboard();
     });
 
-    // First load
+    const toggleButton = document.getElementById('toggleDetailsTable');
+    const tableWrapper = document.getElementById('detailsTableWrapper');
+    const tableIcon = document.getElementById('detailsTableIcon');
+
+    toggleButton.addEventListener('click', () => {
+        tableWrapper.classList.toggle('hidden');
+        tableIcon.classList.toggle('rotate-180');
+    });
+
     updateDashboard();
 });
 </script>
